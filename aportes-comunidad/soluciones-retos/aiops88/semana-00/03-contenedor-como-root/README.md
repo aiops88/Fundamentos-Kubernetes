@@ -13,6 +13,9 @@ Un compañero empaquetó una API en Python dentro de un contenedor, pero olvidó
 
 ### 💥 Síntomas
 
+El contenedor funcionaba perfecto, no se caía ni daba error. El problema era de seguridad: con `docker run --rm reto-root id` salía `uid=0(root)`.
+Para probar qué podía hacer, escribí un archivo en `/etc` y funcionó: como root su alcance es a cualquier lugar dentro del contenedor.
+
 1. Construye la imagen actual:
    ```bash
    docker build -t reto-root:v1.0 semana-00-fundamentos-docker/2.reto-roto/03-contenedor-como-root
@@ -40,9 +43,35 @@ Atacante explota tu app
         │
         ├─ app corre como ROOT  ──► escapa ──► root del HOST 💀
         │
-        └─ app corre como 10001 ──► escapa ──► usuario sin permisos 🛡️
+        └─ app corre como 10001 ──► escapa ──► usuario sin permisos
 
-1. Modifica [`Dockerfile`](./Dockerfile) para aplicar el principio de menor privilegio:
+## Causa
+
+El Dockerfile no definía ningún usuario, entonces Docker corre todo como root por defecto.
+El root del contenedor es el mismo UID 0 que el root del host. Lo que lo frena son las paredes de Docker (namespaces, capabilities), pero si alguna tiene un agujero (vulnerabilidad del kernel, `docker.sock` montado, `--privileged`), el atacante sale siendo root del servidor.
+En Kubernetes con políticas seguras (`runAsNonRoot: true`) este contenedor ni siquiera arrancaría: `CreateContainerConfigError`.
+
+## Solución
+Me traje el patrón del reto 2, porque ese Dockerfile ya corría como usuario no privilegiado:
+
+```dockerfile
+RUN addgroup -g 10001 -S appgroup && \
+    adduser -u 10001 -S appuser -G appgroup
+COPY --chown=appuser:appgroup app.py .
+USER appuser
+```
+
+## Lo que aprendí
+- **¿Por qué UID 10001?** El kernel no conoce nombres, solo números. Del 0 al 999 son cuentas del sistema y el 1000 suele ser el primer usuario humano del host. Si el contenedor corre como 1000 y escapa o monta una carpeta del host, actúa como ese usuario real. Con 10001 lo más probable es que no coincida con nadie.
+- **El orden importa:** si pongo `USER appuser` antes del `RUN adduser`, el build falla con `unable to find user appuser`, porque intenta correr como un usuario que todavía no existe. Además, crear usuarios requiere root. Primero va todo lo que necesita root y al final se baja de privilegio con `USER`.
+- **Defensa en profundidad:** no confiar en una sola pared. Si la app corre como usuario normal y alguien escapa, sale sin poder.
+
+-----------------------
+## 🧪 Verificación
+- `docker run --rm reto-root id` → `uid=10001`
+- Intentar escribir en `/etc` → `Permission denied`
+      
+      1. Modifica [`Dockerfile`](./Dockerfile) para aplicar el principio de menor privilegio:
    * Crea un grupo y un usuario no privilegiado en Alpine (por ejemplo `appuser` con UID y GID `10001`):
      ```dockerfile
      RUN addgroup -g 10001 -S appgroup && \
