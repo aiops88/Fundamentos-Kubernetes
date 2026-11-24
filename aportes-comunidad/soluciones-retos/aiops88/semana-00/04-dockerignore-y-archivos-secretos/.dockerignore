@@ -1,0 +1,16 @@
+# Secretos: nunca deben salir de mi máquina
+.env
+.env.*
+**/.env
+
+# Logs y temporales: basura que infla la imagen
+*.log
+*.tmp
+
+# Control de versiones: el historial de Git puede contener secretos viejos
+.git/
+
+# Documentación y archivos de build: la app no los necesita para correr
+README.md
+Dockerfile
+.dockerignore
