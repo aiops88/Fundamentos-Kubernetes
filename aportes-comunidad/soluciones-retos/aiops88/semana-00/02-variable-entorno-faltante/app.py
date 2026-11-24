@@ -43,7 +43,7 @@ if __name__ == "__main__":
     servidor = http.server.HTTPServer(("0.0.0.0", PORT), Handler)
     servidor.serve_forever()
 
-# Fail-fast: La aplicación falla inmediatamente si no encuentra la variable de entorno obligatoria. Esto es útil para detectar problemas de configuración temprano y evitar que la aplicación se ejecute en un estado incorrecto.
+# Airy: Fail-fast: La aplicación falla inmediatamente si no encuentra la variable de entorno obligatoria. Esto es útil para detectar problemas de configuración temprano y evitar que la aplicación se ejecute en un estado incorrecto.
 # file=sys.stderr) el error va a la salida de error estándar, lo que es útil para diferenciar entre mensajes de log normales y errores críticos. Esto es especialmente importante en entornos de contenedores donde los logs se recopilan y analizan automáticamente.
 #   BUILD (docker build)            RUN (docker run)
 #  ───────────────────             ────────────────
